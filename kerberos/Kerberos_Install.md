@@ -129,6 +129,23 @@ kadmin -q "addprinc admin/admin"
 手动动输入两次密码
 
 
+```
+ kinit   wuwx/name02@HADOOP.COM  -kt wuwx.keytab 
+```
+
+```
+kinit admin/admin@HADOOP.COM
+
+kadmin
+
+kadmin:  addprinc  wuwx/name02@HADOOP.COM
+
+kadmin:  xst -k /home/wuwx/wuwx.keytab  wuwx/name02@HADOOP.COM
+
+
+```
+
+
 ## 常见问题
 
 - HUE+kerberos启动报错Couldn't renew kerberos ticket解决方案
