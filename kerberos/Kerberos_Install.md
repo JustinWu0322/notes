@@ -129,6 +129,55 @@ kadmin -q "addprinc admin/admin"
 手动动输入两次密码
 
 
+
+
+```
+[ypdata@cm01 ~]$ sudo kdb5_util create -r HADOOP.COM -s
+Loading random data
+Initializing database '/var/kerberos/krb5kdc/principal' for realm 'HADOOP.COM',
+master key name 'K/M@HADOOP.COM'
+You will be prompted for the database Master Password.
+It is important that you NOT FORGET this password.
+Enter KDC database master key: 
+Re-enter KDC database master key to verify: 
+	
+```
+
+ **Enter KDC database master key：** admin
+
+
+-  登录KDC，添加管理员和一般用户的principal
+
+	```
+	[root@cm01 ~]# kadmin.local 
+	Authenticating as principal root/admin@HADOOP.COM with password.
+	kadmin.local:  
+	
+	kadmin.local:  addprinc admin/admin
+	WARNING: no policy specified for admin/admin@HADOOP.COM; defaulting to no policy
+	Enter password for principal "admin/admin@HADOOP.COM": 
+	Re-enter password for principal "admin/admin@HADOOP.COM": 
+	Principal "admin/admin@HADOOP.COM" created.
+	
+	```
+
+**注意：**
+
+- 管理账户：
+	-  root/admin@HADOOP.COM  
+	-  admin/admin@HADOOP.COM
+- 密码： 123456
+
+
+	```
+	[root@cm01 ~]# kadmin
+	Authenticating as principal root/admin@HADOOP.COM with password.
+	Password for root/admin@HADOOP.COM: 
+	```
+
+
+
+
 ```
  kinit   wuwx/name02@HADOOP.COM  -kt wuwx.keytab 
 ```
@@ -163,6 +212,89 @@ If the 'renew until' date is the same as the 'valid starting' date, the ticket c
 		
 		- [HUE+kerberos启动报错Couldn't renew kerberos ticket解决方案](https://blog.csdn.net/vah101/article/details/79111585)
 
+
+
+- `systemctl status krb5kdc.service` 失败
+	- 异常信息
+
+		```
+		[root@cm01 ~]# systemctl status krb5kdc.service
+		● krb5kdc.service - Kerberos 5 KDC
+		   Loaded: loaded (/usr/lib/systemd/system/krb5kdc.service; enabled; vendor preset: disabled)
+		   Active: failed (Result: exit-code) since 二 2018-07-10 14:21:44 CST; 4s ago
+		  Process: 15651 ExecStart=/usr/sbin/krb5kdc -P /var/run/krb5kdc.pid $KRB5KDC_ARGS (code=exited, status=1/FAILURE)
+		
+		7月 10 14:21:44 cm01 systemd[1]: Starting Kerberos 5 KDC...
+		7月 10 14:21:44 cm01 krb5kdc[15651]: krb5kdc: Configuration file does not specify default realm, attempting to retrieve default realm
+		7月 10 14:21:44 cm01 systemd[1]: krb5kdc.service: control process exited, code=exited status=1
+		7月 10 14:21:44 cm01 systemd[1]: Failed to start Kerberos 5 KDC.
+		7月 10 14:21:44 cm01 systemd[1]: Unit krb5kdc.service entered failed state.
+		7月 10 14:21:44 cm01 systemd[1]: krb5kdc.service failed.
+		```
+	- 解决方法
+
+		修改`/etc/krb5.conf`文件，将default_realm设置成`HADOOP.COM`
+	
+		```
+		includedir /etc/krb5.conf.d/
+	
+		[logging]
+		 default = FILE:/var/log/krb5libs.log
+		 kdc = FILE:/var/log/krb5kdc.log
+		 admin_server = FILE:/var/log/kadmind.log
+		
+		[libdefaults]
+		 dns_lookup_realm = false
+		 ticket_lifetime = 24h
+		 renew_lifetime = 7d
+		 forwardable = true
+		 rdns = false
+		 default_realm = HADOOP.COM
+		 default_ccache_name = KEYRING:persistent:%{uid}
+		
+		[realms]
+		 HADOOP.COM = {
+		  kdc = cm01
+		  admin_server = cm01
+		 }
+		
+		[domain_realm]
+		```
+	
+
+
+
+- `Operation requires ``list'' privilege while retrieving list.`
+	-  解决方法
+		
+		```
+		[root@cm01 ~]# cat /var/kerberos/krb5kdc/kadm5.acl
+		*/admin@EXAMPLE.COM	*
+		```
+		
+		将`*/admin@EXAMPLE.COM	*` 修改成`*/admin@HADOOP.COM	*`
+
+
+- `Hue kerberos `
+
+
+	- 解决方法(修改后重启)
+	
+		```
+		kadmin:  modprinc -maxrenewlife 90day krbtgt/HADOOP.COM
+		Principal "krbtgt/HADOOP.COM@HADOOP.COM" modified.
+		kadmin:  modprinc -maxrenewlife 90day +allow_renewable hue/cm01@HADOOP.COM
+		Principal "hue/cm01@HADOOP.COM" modified.
+		kadmin:  modprinc -maxrenewlife 90day +allow_renewable hue/name01@HADOOP.COM
+		Principal "hue/name01@HADOOP.COM" modified.
+		kadmin:  modprinc -maxrenewlife 90day +allow_renewable hue/name02@HADOOP.COM
+		Principal "hue/name02@HADOOP.COM" modified.
+		```
+		
+	- [Enable Hue to Use Kerberos for Authentication
+](https://www.cloudera.com/documentation/enterprise/5-14-x/topics/cm_sg_enable_hue_sec_s10.html)	
+	
+	
 ## 参考资料
 
 - [Enable Hue to Work with Hadoop Security using Cloudera Manager](http://www.cloudera.com/documentation/manager/5-1-x/Configuring-Hadoop-Security-with-Cloudera-Manager/cm5chs_enable_hue_sec_s10.html)
