@@ -295,6 +295,50 @@ If the 'renew until' date is the same as the 'valid starting' date, the ticket c
 ](https://www.cloudera.com/documentation/enterprise/5-14-x/topics/cm_sg_enable_hue_sec_s10.html)	
 	
 	
+	
+- ` Can't create directory /yarn/nm/usercache/urika/appcache/application_1 - Permission denied `
+
+	- 异常信息
+		
+		```
+		For more detailed output, check application tracking page:http://name01:8088/proxy/application_1531209436918_0011/Then, click on links to logs of each attempt.
+Diagnostics: Application application_1531209436918_0011 initialization failed (exitCode=255) with output: main : command provided 0
+main : run as user is ypdata
+main : requested yarn user is ypdata
+Can't create directory /data/1/yarn/nm/usercache/ypdata/appcache/application_1531209436918_0011 - Permission denied
+Can't create directory /data/2/yarn/nm/usercache/ypdata/appcache/application_1531209436918_0011 - Permission denied
+Can't create directory /data/3/yarn/nm/usercache/ypdata/appcache/application_1531209436918_0011 - Permission denied
+Can't create directory /data/4/yarn/nm/usercache/ypdata/appcache/application_1531209436918_0011 - Permission denied
+Can't create directory /data/5/yarn/nm/usercache/ypdata/appcache/application_1531209436918_0011 - Permission denied
+Can't create directory /data/6/yarn/nm/usercache/ypdata/appcache/application_1531209436918_0011 - Permission denied
+Did not create any app directories
+		```
+		
+		
+	- 解决方法
+
+		- [Can-t-create-directory-yarn-nm-usercache-urika-appcache](https://community.cloudera.com/t5/Batch-Processing-and-Workflow/Can-t-create-directory-yarn-nm-usercache-urika-appcache/td-p/24891)
+
+		- [Permission denied errors for local usercache directories when attempting to run MapReduce job on Kerberos enabled cluster](https://issues.apache.org/jira/browse/YARN-3921)
+	
+	
+	
+- yarn rest api 无法killed任务
+
+	- 解决方法
+		
+		```
+		n Cloudera Manager or your YARN config , "You have to check the box for "Enable Kerberos Authentication for HTTP Web-Consoles" in the Yarn configuration to make this work[1]. Then restart Yarn"
+		```
+		
+		```
+		curl --negotiate -u    -v -X PUT -H "Content-Type: application/json" -d '{"state": "KILLED"}' 'http://name01:8088/ws/v1/cluster/apps/application_1531288537620_0003/state'
+		```
+		
+		- [https://github.com/cloudera/hue/issues/307](https://github.com/cloudera/hue/issues/307)
+
+		
+	
 ## 参考资料
 
 - [Enable Hue to Work with Hadoop Security using Cloudera Manager](http://www.cloudera.com/documentation/manager/5-1-x/Configuring-Hadoop-Security-with-Cloudera-Manager/cm5chs_enable_hue_sec_s10.html)
