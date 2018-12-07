@@ -19,6 +19,10 @@
 	用户名和密码：`hive/hive`
 
 
+	```
+	beeline --verbose=true -u "jdbc:hive2://data01:10000/default;principal=hive/_HOST@HADOOP.COM"
+	```
+
 
 	```
 	 GRANT ALL ON DATABASE db3 TO ROLE etl;
@@ -35,7 +39,7 @@
 	```
 	 jdbc:hive2://10.205.58.36:10000> CREATE ROLE admin;
 	 jdbc:hive2://10.205.58.36:10000> GRANT ROLE admin TO GROUP hive;
-	 jdbc:hive2://10.205.58.36:10000> GRANT ALL ON server SentryHostname to role admin;
+	 jdbc:hive2://10.205.58.36:10000> GRANT ALL ON server server1 to role admin;
 	 jdbc:hive2://10.205.58.36:10000> 
 	 jdbc:hive2://10.205.58.36:10000> CREATE ROLE etl； 
 	 jdbc:hive2://10.205.58.36:10000> GRANT ROLE etl TO GROUP etl;
@@ -133,6 +137,50 @@ SHOW GRANT ROLE <roleName> on OBJECT <objectName>;
 
 
 
+
+## Hadoop 
+
+
+
+```
+curl --negotiate -u wuwx -b ~/cookiejar.txt -c ~/cookiejar.txt -H "Accept: application/json" -H "Content-Type: application/json"   http://datanode03:8088/ws/v1/cluster/delegation-token -d '{"renewer":"data03"}'
+```
+
+```
+{
+    "token":"MAAWYWRtaW4vYWRtaW5ASEFET09QLkNPTQZkYXRhMDMAigFkktHwOooBZLbedDoBAhQ-CKd9LYnqkKQ1b4N37pTlMR_kmBNSTV9ERUxFR0FUSU9OX1RPS0VOAA",
+    "renewer":"data03",
+    "owner":"admin/admin@HADOOP.COM",
+    "kind":"RM_DELEGATION_TOKEN",
+    "expiration-time":1531557989434,
+    "max-validity":1532076389434
+}
+```
+
+### 生产环境
+
+
+- 获取Token
+
+```
+curl --negotiate -u wuwx -b ~/cookiejar.txt -c ~/cookiejar.txt -H "Accept: application/json" -H "Content-Type: application/json"   http://name01:8088/ws/v1/cluster/delegation-token -d '{"renewer":"ypdata"}'
+```
+
+
+- Kill Application 
+
+```
+curl --negotiate -u ypdata  -XPUT -H "X-Hadoop-Delegation-Token:MgAYeXBkYXRhL2RhdGEwMUBIQURPT1AuQ09NBnlwZGF0YQCKAWSS6JlligFktvUdZQMCFDnJ2voi8nvwJmEGr1oWkAET_71VE1JNX0RFTEVHQVRJT05fVE9LRU4A"  -H "Accept: application/json" -H "Content-Type: application/json"     http://name01:8088/ws/v1/cluster/apps/application_1531472489843_0005/state -d '{"state":"KILLED"}
+```
+
+
+
+- [Cluster_Delegation_Tokens_API](https://hadoop.apache.org/docs/r2.8.0/hadoop-yarn/hadoop-yarn-site/ResourceManagerRest.html#Cluster_Delegation_Tokens_API)
+
+- [Hadoop Auth, Java HTTP SPNEGO - Examples](https://hadoop.apache.org/docs/r2.8.0/hadoop-auth/Examples.html)
+
+
+
 ## 异常信息
 
 - `can't be none in non-testing mode `
@@ -150,6 +198,17 @@ SHOW GRANT ROLE <roleName> on OBJECT <objectName>;
 		  <value>true</value>
 		</property>
 		```	
+	
+	
+	
+	
+
+- `Error: Could not open client transport with JDBC Uri: jdbc:hive2://data01:10000/default: Peer indicated failure: Unsupported mechanism type PLAIN (state=08S01,code=0)`
+
+
+- 解决方式
+ 
+	 `beeline --verbose=true -u "jdbc:hive2://data01:10000/default;principal=hive/_HOST@HADOOP.COM"`
 		
 ## 参考资料
 
@@ -171,3 +230,5 @@ SHOW GRANT ROLE <roleName> on OBJECT <objectName>;
 - [Securing Access To Your Data](http://hbase.apache.org/book.html#_securing_access_to_your_data)
 
 - [HBase Authorization Cheat sheet](http://boopathi.me/blog/hbase-authorization-cheat-sheet/)
+
+- [How to create a role admin user / priviledge](https://community.cloudera.com/t5/Interactive-Short-cycle-SQL/How-to-create-a-role-admin-user-priviledge/m-p/58721)
