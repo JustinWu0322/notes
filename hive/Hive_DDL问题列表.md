@@ -111,13 +111,44 @@ alter table test_hive set  SERDEPROPERTIES ('path'='hdfs://name01:8020/user/hive
 
 ### 背景
 
+- `spark saveAsTable` 生成新表 `test_wwx.test_spark`
+
+- 新增列
+
+	```
+	ALTER TABLE test_wwx.test_spark ADD COLUMNS (card_type STRING );
+	```
+-  生成新的`DataFrame`，数据保存到hive表时报错，错误信息，详见【异常信息1】
+
+	```
+	val sql ="select id_pk,uid,card_id,owner,card_no,idcard,card_type,dt from test_wwx.MEMBER_BANKCARD_UID_IDCARD_ANA_test where dt>='2019-09-10' and dt<'2019-09-11'"
+
+	val df=spark.sql(sql)
+df.write.partitionBy("dt").mode("append").format("parquet").saveAsTable("test_wwx.test_spark")
+	```
+	
+
+- 在hive终端执行SQL，新增列可以正常写入数据
+
+	```
+	INSERT OVERWRITE TABLE test_wwx.test_spark PARTITION(dt) select id_pk,uid,card_id,owner,card_no,idcard,card_type,dt from test_wwx.MEMBER_BANKCARD_UID_IDCARD_ANA_test where dt>='2019-09-10' and dt<'2019-09-11';
+	```
+
+-  Spark SQL读取上一步新增的列数据，spark无法识别新增列`card_type `,错误信息，详见【异常信息2】
+
+	```
+	scala> spark.sql("select card_id,card_type from test_wwx.test_spark where dt='2019-09-10' limit 10").show(20,false)
+	```
+
 
 ### 报错信息
 
+-  异常信息1
+
 ```
-	scala> df.write.mode("overwrite").format("parquet").insertInto("test_wwx.test09");
+	scala> df.write.mode("overwrite").format("parquet").insertInto("test_wwx.test_spark");
 	
-	org.apache.spark.sql.AnalysisException: `test_wwx`.`test09` requires that the data to be inserted have the same number of columns as the target table: target table has 9 column(s) but the inserted data has 10 column(s), including 0 partition column(s) having constant value(s).;
+	org.apache.spark.sql.AnalysisException: `test_wwx`.`test_spark` requires that the data to be inserted have the same number of columns as the target table: target table has 9 column(s) but the inserted data has 10 column(s), including 0 partition column(s) having constant value(s).;
 	  at org.apache.spark.sql.execution.datasources.PreprocessTableInsertion.org$apache$spark$sql$execution$datasources$PreprocessTableInsertion$$preprocess(rules.scala:341)
 	  at org.apache.spark.sql.execution.datasources.PreprocessTableInsertion$$anonfun$apply$3.applyOrElse(rules.scala:373)
 	  at org.apache.spark.sql.execution.datasources.PreprocessTableInsertion$$anonfun$apply$3.applyOrElse(rules.scala:368)
@@ -140,6 +171,40 @@ alter table test_hive set  SERDEPROPERTIES ('path'='hdfs://name01:8020/user/hive
 ```
 
 
+- 异常信息2
+
+	```
+	scala> spark.sql("select card_id,card_type from test_wwx.test_spark where dt='2019-09-10' limit 10").show(20,false)
+org.apache.spark.sql.AnalysisException: cannot resolve '`card_type`' given input columns: [test_wwx.test_spark.idcard, test_wwx.test_spark.dt, test_wwx.test_spark.owner, test_wwx.test_spark.uid, test_wwx.test_spark.card_id, test_wwx.test_spark.id_pk, test_wwx.test_spark.card_no]; line 1 pos 15;
+'GlobalLimit 10
++- 'LocalLimit 10
+   +- 'Project [card_id#66, 'card_type]
+      +- Filter (dt#70 = 2019-09-10)
+         +- SubqueryAlias `test_wwx`.`test_spark`
+            +- Relation[id_pk#64,uid#65,card_id#66,owner#67,card_no#68,idcard#69,dt#70] parquet
+
+  at org.apache.spark.sql.catalyst.analysis.package$AnalysisErrorAt.failAnalysis(package.scala:42)
+  at org.apache.spark.sql.catalyst.analysis.CheckAnalysis$$anonfun$checkAnalysis$1$$anonfun$apply$3.applyOrElse(CheckAnalysis.scala:111)
+  at org.apache.spark.sql.catalyst.analysis.CheckAnalysis$$anonfun$checkAnalysis$1$$anonfun$apply$3.applyOrElse(CheckAnalysis.scala:108)
+  at org.apache.spark.sql.catalyst.trees.TreeNode$$anonfun$transformUp$1.apply(TreeNode.scala:281)
+  at org.apache.spark.sql.catalyst.trees.TreeNode$$anonfun$transformUp$1.apply(TreeNode.scala:281)
+  at org.apache.spark.sql.catalyst.trees.CurrentOrigin$.withOrigin(TreeNode.scala:70)
+  at org.apache.spark.sql.catalyst.trees.TreeNode.transformUp(TreeNode.scala:280)
+  at org.apache.spark.sql.catalyst.plans.QueryPlan$$anonfun$transformExpressionsUp$1.apply(QueryPlan.scala:93)
+  at org.apache.spark.sql.catalyst.plans.QueryPlan$$anonfun$transformExpressionsUp$1.apply(QueryPlan.scala:93)
+  at org.apache.spark.sql.catalyst.plans.QueryPlan$$anonfun$1.apply(QueryPlan.scala:105)
+  at org.apache.spark.sql.catalyst.plans.QueryPlan$$anonfun$1.apply(QueryPlan.scala:105)
+  at org.apache.spark.sql.catalyst.trees.CurrentOrigin$.withOrigin(TreeNode.scala:70)
+  at org.apache.spark.sql.catalyst.plans.QueryPlan.transformExpression$1(QueryPlan.scala:104)
+  at org.apache.spark.sql.catalyst.plans.QueryPlan.org$apache$spark$sql$catalyst$plans$QueryPlan$$recursiveTransform$1(QueryPlan.scala:116)
+  at org.apache.spark.sql.catalyst.plans.QueryPlan$$anonfun$org$apache$spark$sql$catalyst$plans$QueryPlan$$recursiveTransform$1$2.apply(QueryPlan.scala:121)
+  at scala.collection.TraversableLike$$anonfun$map$1.apply(TraversableLike.scala:234)
+  at scala.collection.TraversableLike$$anonfun$map$1.apply(TraversableLike.scala:234)
+  at scala.collection.immutable.List.foreach(List.scala:392)
+  at scala.collection.TraversableLike$class.map(TraversableLike.scala:234)
+  at scala.collection.immutable.List.map(List.scala:296)
+	```
+
 ### 解决方案
 
 ```
@@ -152,3 +217,9 @@ spark saveAsTable不支持新增/修改列操作
 * like Hive will be able to read this table. Otherwise, the table is persisted in a Spark SQL
 * specific format.
 ```
+
+- hive支持修改列，解决方法
+
+	- 手动创建hive表
+	- `DataFrame`使用`insertInto`写入数据
+
